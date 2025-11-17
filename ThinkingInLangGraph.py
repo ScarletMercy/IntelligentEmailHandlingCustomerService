@@ -94,9 +94,9 @@ def clean_html_content(html_content) -> str:
 from langchain_openai import ChatOpenAI
 import os
 
-model=os.getenv('model')
-base_url=os.getenv('base_url')
-api_key=os.getenv('api_key')
+model=os.getenv('MODEL')
+base_url=os.getenv('BASE_URL')
+api_key=os.getenv('API_KEY')
 
 
 model=ChatOpenAI(
