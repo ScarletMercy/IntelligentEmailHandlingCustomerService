@@ -6,12 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "ThinkingInLangGraph"
 version = "0.1.2"
 description = "LangGraph AI email support prototype"
-dynamic = ["dependencies"]
- 
-[tool.setuptools]
-py-modules = ["QQEmailListener", "ThinkingInLangGraph"]
-
-[tool.setuptools.dynamic]
 dependencies = [
     "annotated-types==0.7.0",
     "anyio==4.11.0",
@@ -57,5 +51,9 @@ dependencies = [
     "zstandard==0.25.0"
 ]
  
+[tool.setuptools]
+py-modules = ["QQEmailListener", "ThinkingInLangGraph"]
+
+
 [project.scripts]
 ThinkingInLangGraph = "ThinkingInLangGraph:main"
