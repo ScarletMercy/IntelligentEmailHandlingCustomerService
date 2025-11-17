@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta" 
+ 
+[project]
+name = "ThinkingInLangGraph"
+version = "0.1.2"
+description = "LangGraph AI email support prototype"
+dynamic = ["dependencies"]
+ 
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]} 
+ 
+[project.scripts]
+ThinkingInLangGraph = "ThinkingInLangGraph:main"  
