@@ -1,3 +1,12 @@
+# 1.Read incoming customer emails
+# 2.Classify them by urgency and topic
+# 3.Search relevant documentation to answer question
+# 4.Draft appropriate responses
+# 5.Escalate complex issues to human agents
+# 6.Schedule follow-ups when needed
+
+
+# 1.设计state
 from typing import TypedDict,Literal
 from langgraph.graph import MessagesState, START, END, StateGraph
 from langgraph.types import Command, interrupt, RetryPolicy
@@ -338,11 +347,3 @@ def main():
 
 if __name__=='__main__':
     main()
-
-
-# 3.handle error
-
-
-
-
-
