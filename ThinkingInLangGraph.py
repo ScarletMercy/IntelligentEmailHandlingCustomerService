@@ -322,8 +322,7 @@ workflow.add_edge('send_reply',END)
 app=workflow.compile()
 
 
-
-if __name__=='__main__':
+def main():
     email_address = os.getenv('QQEMAIL')
     password = os.getenv('EMAIL_PASSWORD')  # QQ邮箱需要使用授权码而非密码
 
@@ -333,16 +332,21 @@ if __name__=='__main__':
     listener = QQEmailListener(email_address, password)
 
     while True:
-        email=next(listener.listen_for_emails(check_interval=5))
-        if email:
-            app.invoke({
-                'email_content': email['email_content'],
-                'sender_email': email['sender_email'],
-                'email_id': email['email_id']
-                 },
-                context=QQEmail(sender=email_address,password=password)
-            )
+        try:
+            email=next(listener.listen_for_emails(check_interval=5))
+            if email:
+                app.invoke({
+                    'email_content': email['email_content'],
+                    'sender_email': email['sender_email'],
+                    'email_id': email['email_id']
+                     },
+                    context=QQEmail(sender=email_address,password=password)
+                )
+        except:
+            continue
 
+if __name__=='__main__':
+    main()
 
 
 # 3.handle error
