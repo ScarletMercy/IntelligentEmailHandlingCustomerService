@@ -8,8 +8,11 @@ version = "0.1.2"
 description = "LangGraph AI email support prototype"
 dynamic = ["dependencies"]
  
+[tool.setuptools]
+py-modules = ["QQEmailListener", "ThinkingInLangGraph"]
+
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]} 
  
 [project.scripts]
-ThinkingInLangGraph = "ThinkingInLangGraph:main"  
+ThinkingInLangGraph = "ThinkingInLangGraph:main"
