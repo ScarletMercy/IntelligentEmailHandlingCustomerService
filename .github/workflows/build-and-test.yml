@@ -1,9 +1,13 @@
 name: Upload Python Package
 
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   release:
     types: [published]
-  workflow_dispatch : {}
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -43,4 +47,4 @@ jobs:
       - name: Install built package & smoke test 
         run: |
           python -m pip install ./dist/*.whl 
-          python -m ThinkingInLangGraph --help
+          python -m ThinkingInLangGraph --help 
