@@ -4,8 +4,8 @@
 # 4.Draft appropriate responses
 # 5.Escalate complex issues to human agents
 # 6.Schedule follow-ups when needed
-
-
+import sys
+from pathlib import Path
 # 1.设计state
 from typing import TypedDict, Literal
 from langgraph.graph import MessagesState, START, END, StateGraph
@@ -26,6 +26,26 @@ import re
 import os
 
 from feishu_api.feishu import FeishuAPI
+import logging
+# === 关键：正确获取项目根目录 ===
+if getattr(sys, 'frozen', False):
+    # PyInstaller 打包后：可执行文件所在目录 = 项目根目录
+    PROJECT_ROOT = Path(sys.executable).parent
+else:
+    # 开发模式：脚本所在目录
+    PROJECT_ROOT = Path(__file__).parent
+
+# 强制加载 PROJECT_ROOT/.env
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env", override=True)
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
 
 
 class EmailClassification(TypedDict):
@@ -183,6 +203,7 @@ def search_documentation(state: EmailAgentState) -> Command['draft_response']:
 
     try:
         search_result = [
+            "The user might be just chatting, let's chat casually. Keep the reply short."
             "Reset password via Settings > Security > Change Password",
             "Password must be at least 12 characters",
             "Include uppercase, lowercase, numbers, and symbols"
@@ -264,6 +285,7 @@ def draft_response(state: EmailAgentState) -> Command[Literal['send_reply']]:
     searched_documentation: {context_sections}
     
     Guidelines:
+    - The user might be just chatting, let's chat casually. Keep the reply short.
     - Be professional and helpful
     - Address their specific concern
     - Use the provided documentation when relevant
@@ -356,3 +378,4 @@ def main(test: bool = True):
 
 if __name__ == '__main__':
     main(False)
+

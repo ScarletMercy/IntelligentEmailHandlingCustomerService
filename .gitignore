@@ -1,0 +1,24 @@
+# .gitignore
+
+# 打包产物
+__pycache__/
+*.pyc
+dist/
+build/
+*.spec
+
+# 配置文件（敏感信息）
+.env
+config/*.secret.yaml
+
+# 日志/数据（如果本地测试生成）
+logs/
+data/
+
+# IDE / 编辑器
+.idea/
+*.swp
+.DS_Store
+.github
+.venv
+venv

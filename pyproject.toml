@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
  
 [project]
 name = "ThinkingInLangGraph"
-version = "0.1.2"
+version = "1.1.2"
 description = "LangGraph AI email support prototype"
 dependencies = [
     "annotated-types==0.7.0",
@@ -15,6 +15,7 @@ dependencies = [
     "charset-normalizer==3.4.4",
     "colorama==0.4.6",
     "distro==1.9.0",
+    "dotenv==0.9.9",
     "h11==0.16.0",
     "httpcore==1.0.9",
     "httpx==0.28.1",
