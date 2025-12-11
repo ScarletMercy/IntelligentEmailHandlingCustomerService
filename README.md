@@ -9,7 +9,7 @@ An AI-powered email handling system built with LangGraph framework, specifically
 - Document search based on email content
 - Automatic generation of professional and accurate responses
 - Human review for complex emails
-- Automatic bug reporting
+- Automatic bug reporting to Feishu
 - Automated email replies
 
 ## Technical Architecture
@@ -26,6 +26,7 @@ This project is built on the following technology stack:
 - Python 3.11.x
 - QQ email account and authorization code
 - API key for compatible chat model (OpenAI, DeepSeek, etc.)
+- Feishu app credentials (APP_ID, APP_SECRET, APP_TOKEN)
 
 ## Installation
 
@@ -38,14 +39,17 @@ cd AIHandleQQEmail
 
 ### 2. Install dependencies
 
+Install directly from pyproject.toml:
+
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
-Or install as a package:
+Or build and install the package:
 
 ```bash
-pip install .
+python -m build
+pip install dist/*.whl
 ```
 
 ### 3. Set environment variables
@@ -58,11 +62,17 @@ export EMAIL_PASSWORD=your_email_password  # QQ email authorization code
 export MODEL=your_model_name               # Model name to use
 export BASE_URL=your_api_base_url          # API base URL
 export API_KEY=your_api_key                # API key
+export APP_ID=your_feishu_app_id           # Feishu app ID
+export APP_SECRET=your_feishu_app_secret   # Feishu app secret
+export APP_TOKEN=your_feishu_app_token     # Feishu app token
+export RECEIVE_ID=your_receive_id          # Feishu receive ID for messages
+export TABLE_ID=your_table_id              # Feishu table ID for bug tracking
 ```
 
 Notes:
 - QQ email requires an authorization code instead of login password, which can be generated in QQ email settings
 - MODEL, BASE_URL, API_KEY can be configured according to the model service used (e.g. OpenAI, DeepSeek, etc.)
+- Feishu credentials are needed for bug tracking and messaging features
 
 ## Usage
 
@@ -71,15 +81,15 @@ Notes:
 By default, runs in test mode:
 
 ```bash
-python -m ThinkingInLangGraph
+python ThinkingInLangGraph.py
 ```
 
 ### Run in production mode
 
-Pass test=False parameter to run in production mode:
+Pass False parameter to run in production mode:
 
 ```bash
-python -m ThinkingInLangGraph test=False
+python ThinkingInLangGraph.py False
 ```
 
 ### As a command-line tool
@@ -90,15 +100,26 @@ After installation, you can use the following command:
 ThinkingInLangGraph
 ```
 
+### Run as executable
+
+Build the executable using the build script:
+
+```bash
+./build.sh
+```
+
+The executable will be located in the `dist/` directory.
+
 ## Workflow
 
 1. **Email Monitoring**: Continuously monitors new emails in QQ mailbox
 2. **Email Classification**: Uses AI to analyze email content and classify by intent and urgency
 3. **Document Search**: Searches relevant documentation based on classification results
 4. **Response Drafting**: Drafts responses based on search results and email content
-5. **Human Review**: Complex or high-priority emails are sent for human review
-6. **Bug Tracking**: Automatically records bug reports to bug_list.txt file
-7. **Email Sending**: Automatically sends reply emails to customers
+5. **Special Handling**:
+   - Complex or high-priority emails are sent for human review via Feishu
+   - Bug reports are automatically recorded in Feishu database
+6. **Email Sending**: Automatically sends reply emails to customers
 
 ## Email Classification Rules
 
@@ -119,14 +140,19 @@ The system classifies emails based on the following dimensions:
 
 ## Configuration
 
-### GitHub Actions Auto-publish
+### GitHub Actions Auto-build and Test
 
-The project includes GitHub Actions configuration file for automatic building and publishing of Python packages to PyPI.
+The project includes GitHub Actions configuration file for automatic building and testing.
 
 The following secrets need to be configured in repository settings:
 - MODEL: Model name to use
 - BASE_URL: API base URL
 - API_KEY: API key
+- APP_ID: Feishu app ID
+- APP_SECRET: Feishu app secret
+- APP_TOKEN: Feishu app token
+- RECEIVE_ID: Feishu receive ID for messages
+- TABLE_ID: Feishu table ID for bug tracking
 - QQEMAIL: QQ email address
 - EMAIL_PASSWORD: QQ email authorization code
 
@@ -136,11 +162,10 @@ The following secrets need to be configured in repository settings:
 .
 ├── QQEmailListener.py       # QQ email listener implementation
 ├── ThinkingInLangGraph.py   # Core AI processing logic
+├── build.sh                 # Build script for executable
 ├── pyproject.toml           # Project configuration file
-├── requirements.txt         # Dependency list
-├── bug_list.txt             # Bug report log file (auto-generated at runtime)
 └── .github/workflows/
-    └── python-publish.yml   # GitHub Actions publish configuration
+    └── build-and-test.yml   # GitHub Actions build and test configuration
 ```
 
 ## Development Guide
@@ -149,12 +174,13 @@ The following secrets need to be configured in repository settings:
 
 1. **QQEmailListener class**: Responsible for listening to QQ emails and fetching new emails
 2. **ThinkingInLangGraph main workflow**: LangGraph-based workflow that handles email classification, document search, response generation, etc.
-3. **Various processing nodes**:
+3. **Feishu Integration**: Integration with Feishu for bug tracking and messaging
+4. **Various processing nodes**:
    - classify_intent: Email classification node
    - search_documentation: Document search node
    - bug_tracking: Bug tracking node
+   - to_human: Human escalation node
    - draft_response: Response drafting node
-   - human_review: Human review node
    - send_reply: Send reply node
 
 ### Extending Functionality
