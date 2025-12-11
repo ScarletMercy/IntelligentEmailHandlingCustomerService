@@ -204,8 +204,8 @@ def search_documentation(state: EmailAgentState) -> Command['draft_response']:
     try:
         search_result = [
             "The user might be just chatting, let's chat casually. Keep the reply short."
-            "Reset password via Settings > Security > Change Password",
-            "Password must be at least 12 characters",
+            # "Reset password via Settings > Security > Change Password.Only choose this when the user explicitly mentions it.",
+            # "Password must be at least 12 characters",
             "Include uppercase, lowercase, numbers, and symbols"
         ]
         print('搜索完成')
@@ -363,7 +363,7 @@ def main(test: bool = True):
     if not test:
         while True:
             try:
-                email = next(listener.listen_for_emails(check_interval=5))
+                email = next(listener.listen_for_emails(check_interval=30))
                 if email:
                     app.invoke({
                         'email_content': email['email_content'],

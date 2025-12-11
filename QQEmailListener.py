@@ -1,11 +1,10 @@
 import imaplib
 import email
-import asyncio
 import time
 import os
 from email.header import decode_header
-import threading
 from queue import Queue
+import logging
 
 
 class QQEmailListener:
@@ -14,115 +13,81 @@ class QQEmailListener:
         self.password = password
         self.imap_server = "imap.qq.com"
         self.imap_port = 993
-        self.mail = None
-        self.should_stop = False
-        self.mail_lock = threading.Lock()
-        self.email_queue = Queue()  # 用于存储检测到的邮件
+        self.email_queue = Queue()
+        self.logger = logging.getLogger(__name__)
 
-    def connect(self):
-        """连接到QQ邮箱IMAP服务器"""
+    def _connect_and_select(self):
+        """连接并选择收件箱"""
         try:
-            # 创建IMAP4 SSL连接
-            self.mail = imaplib.IMAP4_SSL(self.imap_server, self.imap_port)
-            # 登录
-            self.mail.login(self.email_address, self.password)
-            # 选择收件箱
-            self.mail.select('inbox')
-            print("成功连接到QQ邮箱")
-            return True
+            mail = imaplib.IMAP4_SSL(self.imap_server, self.imap_port)
+            mail.login(self.email_address, self.password)
+            mail.select('inbox')
+            self.logger.info("成功连接到QQ邮箱")
+            return mail
         except Exception as e:
-            print(f"连接失败: {e}")
-            return False
+            self.logger.error(f"连接失败: {e}")
+            return None
 
-    def disconnect(self):
-        """断开连接"""
+    def _disconnect(self, mail):
+        """安全断开连接"""
         try:
-            if self.mail:
-                self.mail.close()
-                self.mail.logout()
-                self.mail = None
-                print("已断开邮箱连接")
+            if mail:
+                mail.close()
+                mail.logout()
         except:
             pass
 
-    def check_new_emails(self):
-        """检查新邮件"""
+    def _get_unread_emails(self, mail):
+        """获取并处理未读邮件"""
         try:
-            # 获取当前邮件总数
-            status, messages = self.mail.select('inbox')
+            # 搜索未读邮件
+            status, message_ids = mail.search(None, 'UNSEEN')
             if status != 'OK':
                 return []
 
-            # 获取最新的邮件ID
-            status, message_ids = self.mail.search(None, 'ALL')
-            if status != 'OK':
-                return []
-
-            # 获取所有邮件ID
             email_ids = message_ids[0].split()
-
-            # 获取上次检查时记录的邮件数量
-            current_count = len(email_ids)
-
-            # 如果是第一次运行，记录当前邮件数量并返回空列表
-            if not hasattr(self, 'last_email_count'):
-                self.last_email_count = current_count
-                print(f"初始化邮件监听，当前共有 {current_count} 封邮件")
+            if not email_ids:
                 return []
 
-            # 计算新增邮件数量
-            new_count = current_count - self.last_email_count
+            unread_emails = []
+            for email_id in email_ids:
+                # 获取邮件
+                status, msg_data = mail.fetch(email_id, '(RFC822)')
+                if status != 'OK':
+                    continue
 
-            if new_count > 0:
-                print(f"检测到 {new_count} 封新邮件")
-                # 获取新邮件的ID（最新的邮件在列表末尾）
-                new_email_ids = email_ids[-new_count:]
+                # 解析邮件
+                raw_email = msg_data[0][1]
+                email_message = email.message_from_bytes(raw_email)
 
-                new_emails = []
-                for email_id in new_email_ids:
-                    # 获取邮件
-                    status, msg_data = self.mail.fetch(email_id, '(RFC822)')
-                    if status != 'OK':
-                        continue
+                # 提取邮件信息
+                subject = self._decode_subject(email_message['Subject'])
+                sender = email_message['From']
+                date = email_message['Date']
 
-                    # 解析邮件
-                    raw_email = msg_data[0][1]
-                    email_message = email.message_from_bytes(raw_email)
+                # 解析邮件内容
+                content = self._get_email_content(email_message)
 
-                    # 提取邮件信息
-                    subject = self.decode_subject(email_message['Subject'])
-                    sender = email_message['From']
-                    date = email_message['Date']
+                email_info = {
+                    'id': email_id.decode(),
+                    'subject': subject,
+                    'from': sender,
+                    'date': date,
+                    'content': content
+                }
 
-                    # 解析邮件内容
-                    content = self.get_email_content(email_message)
+                unread_emails.append(email_info)
 
-                    email_info = {
-                        'id': email_id.decode(),
-                        'subject': subject,
-                        'from': sender,
-                        'date': date,
-                        'content': content
-                    }
+                # 立即标记为已读
+                mail.store(email_id, '+FLAGS', '\\Seen')
 
-                    new_emails.append(email_info)
-
-                    # 标记为已读（可选）
-                    # self.mail.store(email_id, '+FLAGS', '\\Seen')
-
-                # 更新邮件计数
-                self.last_email_count = current_count
-                return new_emails
-            else:
-                # 更新邮件计数（可能有邮件被删除）
-                self.last_email_count = current_count
-                return []
+            return unread_emails
 
         except Exception as e:
-            print(f"检查新邮件时出错: {e}")
+            self.logger.error(f"获取未读邮件时出错: {e}")
             return []
 
-    def decode_subject(self, subject):
+    def _decode_subject(self, subject):
         """解码邮件主题"""
         if subject:
             decoded_fragments = decode_header(subject)
@@ -130,11 +95,9 @@ class QQEmailListener:
             for fragment, encoding in decoded_fragments:
                 if isinstance(fragment, bytes):
                     if encoding:
-                        # 处理未知编码问题
                         try:
                             decoded_subject += fragment.decode(encoding)
                         except:
-                            # 如果编码未知，尝试使用utf-8或latin1
                             try:
                                 decoded_subject += fragment.decode('utf-8')
                             except:
@@ -149,7 +112,7 @@ class QQEmailListener:
             return decoded_subject
         return ""
 
-    def get_email_content(self, email_message):
+    def _get_email_content(self, email_message):
         """提取邮件内容"""
         content = ""
         if email_message.is_multipart():
@@ -161,11 +124,9 @@ class QQEmailListener:
                         if payload:
                             charset = part.get_content_charset()
                             if charset:
-                                # 处理未知编码问题
                                 try:
                                     content = payload.decode(charset)
                                 except:
-                                    # 如果编码未知，尝试使用utf-8或latin1
                                     try:
                                         content = payload.decode('utf-8')
                                     except:
@@ -176,7 +137,7 @@ class QQEmailListener:
                                 except:
                                     content = payload.decode('latin1', errors='ignore')
                     except Exception as e:
-                        print(f"解码邮件内容时出错: {e}")
+                        self.logger.error(f"解码邮件内容时出错: {e}")
                         pass
         else:
             try:
@@ -184,11 +145,9 @@ class QQEmailListener:
                 if payload:
                     charset = email_message.get_content_charset()
                     if charset:
-                        # 处理未知编码问题
                         try:
                             content = payload.decode(charset)
                         except:
-                            # 如果编码未知，尝试使用utf-8或latin1
                             try:
                                 content = payload.decode('utf-8')
                             except:
@@ -199,53 +158,81 @@ class QQEmailListener:
                         except:
                             content = payload.decode('latin1', errors='ignore')
             except Exception as e:
-                print(f"解码邮件内容时出错: {e}")
+                self.logger.error(f"解码邮件内容时出错: {e}")
                 pass
         return content
 
-    def listen_for_emails(self, check_interval=60):
-        """监听新邮件（生成器版本，适配原始接口）"""
-        if not self.connect():
-            return
+    def listen_for_emails(self, check_interval=30):
+        """监听新邮件（每次轮询只建立一次连接）"""
+        self.logger.info("开始监听新邮件...")
 
-        print("开始监听新邮件...")
+        # 初始化：首次运行时标记所有历史未读邮件为已读
+        initial_mail = self._connect_and_select()
+        if initial_mail:
+            try:
+                status, message_ids = initial_mail.search(None, 'UNSEEN')
+                if status == 'OK':
+                    old_count = len(message_ids[0].split())
+                    if old_count > 0:
+                        # 标记所有历史未读邮件为已读
+                        for email_id in message_ids[0].split():
+                            initial_mail.store(email_id, '+FLAGS', '\\Seen')
+                        self.logger.info(f"初始化完成，已将 {old_count} 封历史未读邮件标记为已读")
+                    else:
+                        self.logger.info("初始化完成，当前无历史未读邮件")
+            except Exception as e:
+                self.logger.error(f"初始化标记历史邮件时出错: {e}")
+            finally:
+                self._disconnect(initial_mail)
 
-        try:
-            while not self.should_stop:
-                with self.mail_lock:  # 使用锁来确保线程安全
-                    new_emails = self.check_new_emails()
+        retry_delay = check_interval
 
-                if new_emails:
-                    print(f"\n发现 {len(new_emails)} 封新邮件!")
-                    for email_info in new_emails:
-                        new_email = {
-                            "email_id": email_info['id'],
-                            "sender_email": email_info['from'],
-                            "email_content": {
-                                "主题": email_info['subject'],
-                                "内容预览": email_info['content'][:100],
-                                "日期": email_info['date']
+        while True:
+            try:
+                # 每次只建立一次连接，完成所有操作
+                mail = self._connect_and_select()
+                if not mail:
+                    time.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 2, 300)
+                    continue
+
+                try:
+                    # 获取新邮件
+                    new_emails = self._get_unread_emails(mail)
+
+                    if new_emails:
+                        self.logger.info(f"发现 {len(new_emails)} 封新邮件!")
+                        for email_info in new_emails:
+                            new_email = {
+                                "email_id": email_info['id'],
+                                "sender_email": email_info['from'],
+                                "email_content": {
+                                    "主题": email_info['subject'],
+                                    "内容预览": email_info['content'][:100],
+                                    "日期": email_info['date']
+                                }
                             }
-                        }
-                        # 将邮件放入队列
-                        self.email_queue.put(new_email)
+                            self.email_queue.put(new_email)
 
-                # 如果队列中有邮件，逐个返回
-                while not self.email_queue.empty():
-                    yield self.email_queue.get()
+                    # 处理队列中的邮件
+                    while not self.email_queue.empty():
+                        yield self.email_queue.get()
 
+                    retry_delay = check_interval  # 成功后重置重试延迟
+
+                finally:
+                    self._disconnect(mail)
+
+                # 等待下一次轮询
                 time.sleep(check_interval)
 
-        except KeyboardInterrupt:
-            print("\n停止监听")
-        except Exception as e:
-            print(f"监听过程中出错: {e}")
-        finally:
-            # self.disconnect()
-            ...
-    def stop_listening(self):
-        """停止监听"""
-        self.should_stop = True
+            except KeyboardInterrupt:
+                self.logger.info("停止监听")
+                break
+            except Exception as e:
+                self.logger.error(f"监听过程中出错: {e}")
+                time.sleep(min(retry_delay, 300))
+                retry_delay *= 2
 
 
 
