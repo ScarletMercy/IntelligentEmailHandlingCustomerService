@@ -1,0 +1,36 @@
+# .gitignore
+
+# 打包产物
+__pycache__/
+*.pyc
+dist/
+build/
+*.spec
+*.egg-info/
+
+# 配置文件（敏感信息）
+.env
+config/*.secret.yaml
+
+# 守护进程产物
+.ai-email.pid
+.ai-email.log
+.ai-email.lock
+
+# 日志/数据（如果本地测试生成）
+logs/
+data/
+
+# 工具缓存
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.smoke/
+
+# IDE / 编辑器
+.idea/
+*.swp
+.DS_Store
+.venv
+venv
+.zcode/

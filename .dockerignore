@@ -1,0 +1,38 @@
+# --- Version control & CI ---
+.git/
+.github/
+
+# --- Python caches & build artifacts ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# --- Virtual environments ---
+.venv/
+venv/
+
+# --- Tests (not needed in the runtime image) ---
+tests.py
+tests/
+
+# --- Secrets: NEVER ship the env file into the image ---
+.env
+
+# --- IDE / editor cruft ---
+.idea/
+*.swp
+.DS_Store
+
+# --- Local runtime artifacts ---
+logs/
+data/
+*.pid
+*.log
+
+# Intentionally KEPT in the context:
+#   pyproject.toml   (install metadata)
+#   ai_email/        (source)
+#   README.md        (documentation)
+#   LICENSE          (license compliance)

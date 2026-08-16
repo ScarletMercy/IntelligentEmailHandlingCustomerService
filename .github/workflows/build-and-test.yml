@@ -1,4 +1,4 @@
-name: Upload Python Package
+name: Build and Test
 
 on:
   push:
@@ -12,39 +12,55 @@ on:
 permissions:
   contents: read
 
+# 同一分支的新推送取消仍在跑的旧构建，节省 runner
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release-build:
     runs-on: ubuntu-latest
-
-    env:
-      MODEL: ${{ secrets.MODEL }}
-      BASE_URL: ${{ secrets.BASE_URL }}
-      API_KEY: ${{ secrets.API_KEY }}
-      QQEMAIL: ${{ secrets.QQEMAIL }}
-      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # requires-python>=3.10，但此前只验证过 3.13：下限与上限都要跑
+        python-version: ["3.10", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11.9"
-          cache: 'pip'
-          cache-dependency-path: 'requirements.txt'
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # 快速反馈前置：lint/测试失败时不再白付构建时间。
+      # 测试所需环境变量由 tests/conftest.py 的 setdefault 提供假值，
+      # 无需注入仓库 secrets（注入反而让真实 BASE_URL 覆盖测试默认值）。
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy
+
+      - name: Run tests
+        run: uv run pytest -q
 
       - name: Build release distributions
-        run: |
-          # NOTE: put your own distribution build steps here.
-          python -m pip install build
-          python -m build
+        run: uv build
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
-          name: release-dists
+          name: release-dists-${{ matrix.python-version }}
           path: dist/
 
-      - name: Install built package & smoke test 
+      - name: Install built package & smoke test
         run: |
-          python -m pip install ./dist/*.whl 
-          python -m ThinkingInLangGraph --help 
+          uv venv .smoke
+          uv pip install --python .smoke ./dist/*.whl
+          .smoke/bin/ai-email --help
