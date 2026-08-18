@@ -99,7 +99,7 @@ def _hidden_input(prompt_text: str) -> str:
         import msvcrt
 
         # 文本模式 stdout 自动把 \n 转为 CRLF
-        return _read_hidden_chars(msvcrt.getwch, "\n")
+        return _read_hidden_chars(msvcrt.getwch, "\n")  # type: ignore[attr-defined]
     import termios
     import tty
 
@@ -562,9 +562,9 @@ def _lock_file_obj(f: "IO[str]", blocking: bool) -> bool:
     if platform.system() == "Windows":
         import msvcrt
 
-        mode = msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK
+        mode = msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK  # type: ignore[attr-defined]
         try:
-            msvcrt.locking(f.fileno(), mode, 1)
+            msvcrt.locking(f.fileno(), mode, 1)  # type: ignore[attr-defined]
             return True
         except OSError:
             return False
